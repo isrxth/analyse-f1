@@ -4,9 +4,10 @@ import type { DriverRaceMetrics } from "./types";
 function App() {
   const [data, setData] = useState<DriverRaceMetrics[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const API_BASE = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-  fetch("http://127.0.0.1:8000/race/2023/metrics") // backend URL
+  fetch(`${API_BASE}/race/2023/metrics`) // backend URL
     .then(async (res) => {
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);

@@ -1,64 +1,79 @@
 import { useEffect, useState } from "react";
-import type { DriverRaceMetrics } from "./types";
+import { AppShell } from "./components/AppShell";
+import { ComparisonPage } from "./pages/ComparisonPage";
+import { RacePage } from "./pages/RacePage";
+import { OverviewPage } from "./pages/OverviewPage";
+import { SessionPage } from "./pages/SessionPage";
+import { DEFAULT_ROUTE, getRouteFromHash } from "./routes";
+import type { ApiHealth, AppRouteId, DriverRaceMetrics } from "./types";
+import { summarizeDrivers } from "./lib/metrics";
+
+const DEFAULT_YEAR = 2023;
+
+const DEMO_METRICS: DriverRaceMetrics[] = [
+  { driver_number: 1, laps_completed: 58, avg_lap_time: 92.384, best_lap: 91.117, pit_out_laps: 2 },
+  { driver_number: 4, laps_completed: 56, avg_lap_time: 92.944, best_lap: 91.402, pit_out_laps: 1 },
+  { driver_number: 16, laps_completed: 57, avg_lap_time: 93.215, best_lap: 91.945, pit_out_laps: 3 },
+  { driver_number: 63, laps_completed: 55, avg_lap_time: 93.552, best_lap: 92.037, pit_out_laps: 2 },
+  { driver_number: 81, laps_completed: 54, avg_lap_time: 93.907, best_lap: 92.442, pit_out_laps: 4 },
+  { driver_number: 44, laps_completed: 58, avg_lap_time: 92.615, best_lap: 90.998, pit_out_laps: 2 },
+  { driver_number: 55, laps_completed: 56, avg_lap_time: 93.001, best_lap: 91.728, pit_out_laps: 2 },
+  { driver_number: 11, laps_completed: 53, avg_lap_time: 94.122, best_lap: 92.944, pit_out_laps: 5 },
+];
+
+const DEMO_HEALTH: ApiHealth = {
+  status: "demo",
+  version: "ui-only",
+};
 
 function App() {
-  const [data, setData] = useState<DriverRaceMetrics[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const API_BASE = import.meta.env.VITE_API_URL;
+  const [route, setRoute] = useState<AppRouteId>(() => getRouteFromHash(window.location.hash));
+  const [activeYear, setActiveYear] = useState<number>(DEFAULT_YEAR);
+  const [data] = useState<DriverRaceMetrics[]>(DEMO_METRICS);
+  const [apiHealth] = useState<ApiHealth | null>(DEMO_HEALTH);
 
   useEffect(() => {
-  fetch(`${API_BASE}/race/2023/metrics`) // backend URL
-    .then(async (res) => {
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      return res.json();
-    })
-    .then((resData: DriverRaceMetrics[]) => {
-      setData(resData);
-      setLoading(false);
-    })
-    .catch((err) => {
-      console.error("Fetch error:", err);
-      setLoading(false);
-    });
-}, []);
+    const syncRoute = () => {
+      setRoute(getRouteFromHash(window.location.hash));
+    };
 
+    syncRoute();
+    window.addEventListener("hashchange", syncRoute);
 
-  if (loading) return <p>Loading data...</p>;
+    if (!window.location.hash) {
+      window.history.replaceState(null, "", `#${DEFAULT_ROUTE}`);
+    }
+
+    return () => window.removeEventListener("hashchange", syncRoute);
+  }, []);
+
+  const summary = summarizeDrivers(data);
+  const apiStatusMessage = "UI mode: backend connection is paused until the design layer is finalized.";
+
+  const onRouteChange = (nextRoute: AppRouteId) => {
+    window.location.hash = `#${nextRoute}`;
+  };
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1>F1 Analytics v0.1 (TypeScript)</h1>
-      <p>Race performance metrics (2023+)</p>
-
-      {data.length === 0 ? (
-        <p>No data available</p>
+    <AppShell
+      activeRoute={route}
+      activeYear={activeYear}
+      apiHealth={apiHealth}
+      apiStatusMessage={apiStatusMessage}
+      driverCount={data.length}
+      onRouteChange={onRouteChange}
+      onYearChange={setActiveYear}
+    >
+      {route === "race" ? (
+        <RacePage metrics={data} activeYear={activeYear} />
+      ) : route === "compare" ? (
+        <ComparisonPage metrics={data} activeYear={activeYear} />
+      ) : route === "session" ? (
+        <SessionPage apiHealth={apiHealth} apiStatusMessage={apiStatusMessage} activeYear={activeYear} />
       ) : (
-        <table border={1} cellPadding={8}>
-          <thead>
-            <tr>
-              <th>Driver Number</th>
-              <th>Laps</th>
-              <th>Best Lap</th>
-              <th>Avg Lap</th>
-              <th>Pit Out Laps</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((d) => (
-              <tr key={d.driver_number}>
-                <td>{d.driver_number}</td>
-                <td>{d.laps_completed}</td>
-                <td>{d.best_lap.toFixed(3)}</td>
-                <td>{d.avg_lap_time.toFixed(3)}</td>
-                <td>{d.pit_out_laps}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <OverviewPage metrics={data} summary={summary} activeYear={activeYear} apiStatusMessage={apiStatusMessage} />
       )}
-    </div>
+    </AppShell>
   );
 }
 

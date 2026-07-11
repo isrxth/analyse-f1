@@ -1,7 +1,7 @@
 import pandas as pd
 
 def laps_to_dataframe(laps_data: list) -> pd.Dataframe:
-    df = pd.Dataframe(laps_data)
+    df = pd.DataFrame(laps_data)
 
     df = df[[
         "driver_number",

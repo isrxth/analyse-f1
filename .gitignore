@@ -2,6 +2,7 @@
 venv/
 __pycache__/
 *.pyc
+stitch_f1_telemetry_insights/   
 
 # Env files
 .env

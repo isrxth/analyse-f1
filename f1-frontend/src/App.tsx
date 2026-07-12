@@ -9,7 +9,7 @@ import type { ApiHealth, AppRouteId, DriverRaceMetrics, RaceSession, RaceResult 
 import { summarizeDrivers } from "./lib/metrics";
 
 const DEFAULT_YEAR = 2023;
-const API_BASE_URL = "http://localhost:10000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:10000";
 
 const DEMO_METRICS: DriverRaceMetrics[] = [
   { driver_number: 1, laps_completed: 58, avg_lap_time: 92.384, best_lap: 91.117, pit_out_laps: 2 },

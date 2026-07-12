@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { DriverRaceMetrics, RaceSession, RaceResult } from "../types";
 import { buildSparklinePath, formatDriverLabel, formatInteger, formatLapTime, sortDrivers } from "../lib/metrics";
 import { SectionHeader } from "../components/SectionHeader";
+import { ComingSoonWrapper } from "../components/ComingSoonWrapper";
 
 interface Props {
   metrics: DriverRaceMetrics[];
@@ -548,7 +549,11 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
 
       {/* T2: Strategy (Only for Race Session Type) */}
       {activeTab === "strategy" && sessionType === "race" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
+        <ComingSoonWrapper 
+          title="Strategy analysis coming soon" 
+          description="Tire compound stint comparisons, wear rates, and optimal window analysis will be active here once tire datasets are processed."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
           {/* Stint Performance Analysis Table */}
           <div className="glass-card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "20px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -684,11 +689,16 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </div>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
       {/* T3: Track Dominance (Only for Race Session Type) */}
       {activeTab === "dominance" && sessionType === "race" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
+        <ComingSoonWrapper
+          title="Track dominance coming soon"
+          description="Segment speed traces, sector leadership mappings, and telemetry curves comparison will be active here."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
           <div className="glass-card" style={{ padding: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "32px" }}>
               <div>
@@ -765,11 +775,16 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </div>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
       {/* T4: Race Control */}
       {activeTab === "control" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+        <ComingSoonWrapper
+          title="Race control timeline coming soon"
+          description="Steward decisions, flag timelines, safety car messages, and radio communications will be active here."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
           {/* Race Control Panel */}
           <div className="glass-card" style={{ padding: "0px", overflow: "hidden" }}>
             <div 
@@ -862,11 +877,16 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </div>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
       {/* T5: Telemetry View (original driver stats sparkline page) */}
       {activeTab === "telemetry" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
+        <ComingSoonWrapper
+          title="Live telemetry view coming soon"
+          description="High frequency RPM, speed traces, throttle/brake applications, and DRS triggers will be active here."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
           <SectionHeader
             eyebrow="Grid view"
             title="Driver performance table"
@@ -916,11 +936,16 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </table>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
       {/* T6: Drivers Championship Standings */}
       {activeTab === "drivers_championship" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+        <ComingSoonWrapper
+          title="Drivers standings coming soon"
+          description="Accumulated season points progression and standings tables will be active here."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
           <div className="glass-card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "20px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
               <h2 style={{ margin: 0, fontSize: "1.25rem", textTransform: "uppercase" }}>Drivers Championship Standings - {activeYear}</h2>
@@ -971,11 +996,16 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </div>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
       {/* T7: Constructors Championship Standings */}
       {activeTab === "constructors_championship" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+        <ComingSoonWrapper
+          title="Constructors standings coming soon"
+          description="Constructors points progression curves and team comparisons will be active here."
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
           <div className="glass-card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "20px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
               <h2 style={{ margin: 0, fontSize: "1.25rem", textTransform: "uppercase" }}>Constructors Championship Standings - {activeYear}</h2>
@@ -1015,6 +1045,7 @@ export function RacePage({ metrics, results, drivers, activeYear, sessions, sele
             </div>
           </div>
         </div>
+      </ComingSoonWrapper>
       )}
 
     </section>

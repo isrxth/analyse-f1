@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import router
+
 app = FastAPI()
 
 app.add_middleware(
@@ -13,23 +15,12 @@ app.add_middleware(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=10000)
+
+
+app.include_router(router)
 
 
 @app.get("/")
 def root():
     return {"status": "API is live"}
-
-
-
-@app.get("/race/{year}/metrics")
-def get_metrics(year: int):
-    return [
-        {
-            "driver_number": 44,
-            "laps_completed": 56,
-            "avg_lap_time": 90.123,
-            "best_lap": 88.456,
-            "pit_out_laps": 2
-        }
-    ]

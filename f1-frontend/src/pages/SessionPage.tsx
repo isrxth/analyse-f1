@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import type { ApiHealth } from "../types";
+import type { ApiHealth, RaceSession } from "../types";
 import { SectionHeader } from "../components/SectionHeader";
 
 interface Props {
   apiHealth: ApiHealth | null;
   apiStatusMessage: string;
   activeYear: number;
+  sessions: RaceSession[];
 }
 
 interface RaceSessionState {
@@ -16,63 +17,30 @@ interface RaceSessionState {
   status: string;
 }
 
-const INITIAL_SESSIONS: Record<number, Omit<RaceSessionState, "isLocked">[]> = {
-  2023: [
-    { id: "bahrain_2023", name: "Bahrain Grand Prix", date: "05 Mar 2023", status: "Verified" },
-    { id: "monaco_2023", name: "Monaco Grand Prix", date: "28 May 2023", status: "Verified" },
-    { id: "british_2023", name: "British Grand Prix", date: "09 Jul 2023", status: "Verified" },
-    { id: "italian_2023", name: "Italian Grand Prix", date: "03 Sep 2023", status: "Awaiting Audit" },
-    { id: "abudhabi_2023", name: "Abu Dhabi Grand Prix", date: "26 Nov 2023", status: "Awaiting Audit" },
-  ],
-  2024: [
-    { id: "bahrain_2024", name: "Bahrain Grand Prix", date: "02 Mar 2024", status: "Verified" },
-    { id: "saudi_2024", name: "Saudi Arabian Grand Prix", date: "09 Mar 2024", status: "Verified" },
-    { id: "monaco_2024", name: "Monaco Grand Prix", date: "26 May 2024", status: "Verified" },
-    { id: "british_2024", name: "British Grand Prix", date: "07 Jul 2024", status: "Awaiting Audit" },
-    { id: "belgian_2024", name: "Belgian Grand Prix", date: "28 Jul 2024", status: "Awaiting Audit" },
-    { id: "singapore_2024", name: "Singapore Grand Prix", date: "22 Sep 2024", status: "Awaiting Audit" },
-  ],
-  2025: [
-    { id: "bahrain_2025", name: "Bahrain Grand Prix", date: "16 Mar 2025", status: "Awaiting Audit" },
-    { id: "australian_2025", name: "Australian Grand Prix", date: "30 Mar 2025", status: "Awaiting Audit" },
-    { id: "monaco_2025", name: "Monaco Grand Prix", date: "25 May 2025", status: "Awaiting Audit" },
-    { id: "british_2025", name: "British Grand Prix", date: "06 Jul 2025", status: "Awaiting Audit" },
-    { id: "italian_2025", name: "Italian Grand Prix", date: "07 Sep 2025", status: "Awaiting Audit" },
-    { id: "singapore_2025", name: "Singapore Grand Prix", date: "05 Oct 2025", status: "Awaiting Audit" },
-  ],
-  2026: [
-    { id: "bahrain_2026", name: "Bahrain Grand Prix", date: "15 Mar 2026", status: "Awaiting Audit" },
-    { id: "imola_2026", name: "Emilia Romagna Grand Prix", date: "03 May 2026", status: "Awaiting Audit" },
-    { id: "monaco_2026", name: "Monaco Grand Prix", date: "24 May 2026", status: "Awaiting Audit" },
-    { id: "british_2026", name: "British Grand Prix", date: "05 Jul 2026", status: "Awaiting Audit" },
-    { id: "belgian_2026", name: "Belgian Grand Prix", date: "26 Jul 2026", status: "Awaiting Audit" },
-    { id: "singapore_2026", name: "Singapore Grand Prix", date: "20 Sep 2026", status: "Awaiting Audit" },
-    { id: "us_2026", name: "United States Grand Prix", date: "25 Oct 2026", status: "Awaiting Audit" },
-  ],
-};
+export function SessionPage({ apiHealth, apiStatusMessage, activeYear, sessions }: Props) {
+  const [sessionStates, setSessionStates] = useState<RaceSessionState[]>([]);
 
-export function SessionPage({ apiHealth, apiStatusMessage, activeYear }: Props) {
-  const [sessions, setSessions] = useState<RaceSessionState[]>([]);
-
-  // Update sessions when year changes
+  // Update sessionStates when props sessions change
   useEffect(() => {
-    const list = INITIAL_SESSIONS[activeYear] || INITIAL_SESSIONS[2026];
-    setSessions(
-      list.map((s) => ({
-        ...s,
-        isLocked: s.status === "Verified", // Lock verified ones by default
+    setSessionStates(
+      sessions.map((s) => ({
+        id: String(s.session_key),
+        name: `${s.location} (${s.country_name})`,
+        date: s.date_start ? new Date(s.date_start).toLocaleDateString() : "TBD",
+        isLocked: false,
+        status: "Awaiting Verification",
       }))
     );
-  }, [activeYear]);
+  }, [sessions]);
 
   const toggleLock = (sessionId: string) => {
-    setSessions((prev) =>
+    setSessionStates((prev) =>
       prev.map((s) =>
         s.id === sessionId
           ? {
               ...s,
               isLocked: !s.isLocked,
-              status: !s.isLocked ? "Verified" : "Awaiting Audit",
+              status: !s.isLocked ? "VERIFIED & LOCKED" : "AWAITING VERIFICATION",
             }
           : s
       )
@@ -80,21 +48,21 @@ export function SessionPage({ apiHealth, apiStatusMessage, activeYear }: Props) 
   };
 
   const lockAll = () => {
-    setSessions((prev) =>
+    setSessionStates((prev) =>
       prev.map((s) => ({
         ...s,
         isLocked: true,
-        status: "Verified",
+        status: "VERIFIED & LOCKED",
       }))
     );
   };
 
   const unlockAll = () => {
-    setSessions((prev) =>
+    setSessionStates((prev) =>
       prev.map((s) => ({
         ...s,
         isLocked: false,
-        status: "Awaiting Audit",
+        status: "AWAITING VERIFICATION",
       }))
     );
   };
@@ -121,7 +89,7 @@ export function SessionPage({ apiHealth, apiStatusMessage, activeYear }: Props) 
           <div>
             <span className="info-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>API status</span>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-              <span className="status-chip__dot" style={{ background: apiHealth?.status === "healthy" ? "#00d100" : "#ff9f00", width: "10px", height: "10px" }} />
+              <span className="status-chip__dot" style={{ background: apiHealth && apiHealth.status !== "offline" ? "#00d100" : "#ff9f00", width: "10px", height: "10px" }} />
               <strong className="info-card__value" style={{ fontSize: "1.75rem", fontFamily: "var(--font-family-headline-sm)" }}>
                 {apiHealth?.status?.toUpperCase() ?? "OFFLINE"}
               </strong>
@@ -210,7 +178,7 @@ export function SessionPage({ apiHealth, apiStatusMessage, activeYear }: Props) 
               </tr>
             </thead>
             <tbody>
-              {sessions.map((s) => (
+              {sessionStates.map((s) => (
                 <tr key={s.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", opacity: s.isLocked ? 0.85 : 1 }}>
                   <td style={{ padding: "16px 20px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -234,7 +202,7 @@ export function SessionPage({ apiHealth, apiStatusMessage, activeYear }: Props) 
                         textTransform: "uppercase" 
                       }}
                     >
-                      {s.isLocked ? "VERIFIED & LOCKED" : "AWAITING VERIFICATION"}
+                      {s.status}
                     </span>
                   </td>
                   <td style={{ padding: "16px 20px", textAlign: "right" }}>

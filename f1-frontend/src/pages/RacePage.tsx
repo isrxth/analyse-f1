@@ -1,37 +1,47 @@
 import { useState, useEffect } from "react";
-import type { DriverRaceMetrics } from "../types";
+import type { DriverRaceMetrics, RaceSession, RaceResult } from "../types";
 import { buildSparklinePath, formatDriverLabel, formatInteger, formatLapTime, sortDrivers } from "../lib/metrics";
 import { SectionHeader } from "../components/SectionHeader";
 
 interface Props {
   metrics: DriverRaceMetrics[];
+  results: RaceResult[];
+  drivers: any[];
   activeYear: number;
+  sessions: RaceSession[];
+  selectedSessionKey: number | null;
+  onSessionChange: (key: number) => void;
 }
 
 type TabType = "results" | "strategy" | "dominance" | "control" | "telemetry" | "drivers_championship" | "constructors_championship";
 type SessionType = "practice" | "qualifying" | "race";
 
-// Mock list of races per season
-const RACES_BY_YEAR: Record<number, string[]> = {
-  2023: ["Bahrain Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Italian Grand Prix", "Abu Dhabi Grand Prix"],
-  2024: ["Bahrain Grand Prix", "Saudi Arabian Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Belgian Grand Prix", "Singapore Grand Prix"],
-  2025: ["Bahrain Grand Prix", "Australian Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Italian Grand Prix", "Singapore Grand Prix"],
-  2026: ["Bahrain Grand Prix", "Emilia Romagna Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Belgian Grand Prix", "Singapore Grand Prix", "United States Grand Prix"],
-};
-
-export function RacePage({ metrics, activeYear }: Props) {
+export function RacePage({ metrics, results, drivers, activeYear, sessions, selectedSessionKey, onSessionChange }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>("results");
   const [sessionType, setSessionType] = useState<SessionType>("race");
   
-  // Available races for the active year
-  const races = RACES_BY_YEAR[activeYear] || RACES_BY_YEAR[2026];
-  const [selectedRace, setSelectedRace] = useState<string>(races[0]);
+  const currentSession = sessions.find((s) => s.session_key === selectedSessionKey) || sessions[0];
+  const selectedRaceName = currentSession ? `${currentSession.location} (${currentSession.country_name})` : "Loading session...";
 
-  // When activeYear changes, reset selectedRace to the first one available
-  useEffect(() => {
-    const updatedRaces = RACES_BY_YEAR[activeYear] || RACES_BY_YEAR[2026];
-    setSelectedRace(updatedRaces[0]);
-  }, [activeYear]);
+  // Build dynamic driver dictionary from fetched drivers
+  const driverLookup = new Map<number, { name: string; code: string; team: string; color: string }>();
+  drivers.forEach((d) => {
+    driverLookup.set(d.driver_number, {
+      name: d.full_name || `${d.first_name} ${d.last_name}`,
+      code: d.name_acronym || "DRV",
+      team: d.team_name || "Independent",
+      color: d.team_colour ? `#${d.team_colour}` : "#ffffff"
+    });
+  });
+
+  const getDriverDetail = (num: number) => {
+    return driverLookup.get(num) || {
+      name: `Driver #${num}`,
+      code: `D${num}`,
+      team: "Independent",
+      color: "#ffffff"
+    };
+  };
 
   // If sessionType is not race, and the activeTab is strategy or dominance, reset to results
   useEffect(() => {
@@ -44,6 +54,56 @@ export function RacePage({ metrics, activeYear }: Props) {
   const [filterFlag, setFilterFlag] = useState("all");
 
   const orderedDrivers = sortDrivers(metrics);
+  const leaderDriver = orderedDrivers[0];
+  const leaderInfo = leaderDriver ? getDriverDetail(leaderDriver.driver_number) : null;
+  const p2Driver = orderedDrivers[1];
+  const p2Info = p2Driver ? getDriverDetail(p2Driver.driver_number) : null;
+
+  const hasResults = results && results.length > 0;
+  let leaderName = "Loading...";
+  let leaderTeam = "";
+  let p2Name = "Loading...";
+  let p2Team = "";
+  let fastestLapTime = "N/A";
+
+  if (hasResults) {
+    const sortedRes = [...results].sort((a, b) => {
+      const aFailed = a.dnf || a.dns || a.dsq;
+      const bFailed = b.dnf || b.dns || b.dsq;
+      if (aFailed && !bFailed) return 1;
+      if (!aFailed && bFailed) return -1;
+      const aPos = a.position || 999;
+      const bPos = b.position || 999;
+      return aPos - bPos;
+    });
+    const leaderRes = sortedRes[0];
+    const leaderDetail = leaderRes ? getDriverDetail(leaderRes.driver_number) : null;
+    if (leaderDetail) {
+      leaderName = leaderDetail.name;
+      leaderTeam = leaderDetail.team;
+    }
+    const p2Res = sortedRes[1];
+    const p2Detail = p2Res ? getDriverDetail(p2Res.driver_number) : null;
+    if (p2Detail) {
+      p2Name = p2Detail.name;
+      p2Team = p2Detail.team;
+    }
+    if (leaderDriver) {
+      fastestLapTime = formatLapTime(leaderDriver.best_lap);
+    }
+  } else {
+    if (leaderInfo) {
+      leaderName = leaderInfo.name;
+      leaderTeam = leaderInfo.team;
+    }
+    if (p2Info) {
+      p2Name = p2Info.name;
+      p2Team = p2Info.team;
+    }
+    if (leaderDriver) {
+      fastestLapTime = formatLapTime(leaderDriver.best_lap);
+    }
+  }
 
   return (
     <section className="surface-panel drivers-panel" style={{ padding: "24px" }}>
@@ -65,7 +125,7 @@ export function RacePage({ metrics, activeYear }: Props) {
           <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>arrow_back</span>
           <span style={{ letterSpacing: "0.12em" }}>{activeYear} Season</span>
           <span style={{ opacity: 0.4 }}>/</span>
-          <span style={{ color: "var(--color-primary)", letterSpacing: "0.12em" }}>{selectedRace}</span>
+          <span style={{ color: "var(--color-primary)", letterSpacing: "0.12em" }}>{selectedRaceName}</span>
         </div>
         
         <div 
@@ -92,8 +152,8 @@ export function RacePage({ metrics, activeYear }: Props) {
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {/* Race selector dropdown */}
             <select
-              value={selectedRace}
-              onChange={(e) => setSelectedRace(e.target.value)}
+              value={selectedSessionKey ?? ""}
+              onChange={(e) => onSessionChange(Number(e.target.value))}
               className="glass-card"
               style={{
                 padding: "8px 16px",
@@ -106,12 +166,13 @@ export function RacePage({ metrics, activeYear }: Props) {
                 outline: "none"
               }}
             >
-              {races.map((race) => (
-                <option key={race} value={race} style={{ background: "#1a1a28", color: "#fff" }}>
-                  {race}
+              {sessions.map((s) => (
+                <option key={s.session_key} value={s.session_key} style={{ background: "#1a1a28", color: "#fff" }}>
+                  {s.location} ({s.country_name})
                 </option>
               ))}
             </select>
+
 
             {/* Session Type Select Dropdown */}
             <select
@@ -214,26 +275,26 @@ export function RacePage({ metrics, activeYear }: Props) {
                 Session Leader
               </span>
               <h3 style={{ margin: "8px 0 0", fontSize: "1.5rem", fontFamily: "var(--font-family-headline-sm)", fontWeight: 700 }}>
-                {sessionType === "practice" ? "George Russell" : "Charles Leclerc"}
+                {leaderName}
               </h3>
               <p style={{ margin: "4px 0 0", color: "var(--color-primary)", fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase" }}>
-                {sessionType === "practice" ? "Mercedes" : "Ferrari"}
+                {leaderTeam}
               </p>
             </div>
             <span className="material-symbols-outlined" style={{ color: "var(--color-primary)", fontSize: "28px" }}>trophy</span>
           </div>
 
           {/* Pole Position / Q2 Leader */}
-          <div className="glass-card" style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderLeft: "4px solid rgba(225, 6, 0, 0.3) !important" }}>
+          <div className="glass-card" style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-family-label-sm)", color: "var(--color-secondary-fixed-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                {sessionType === "practice" ? "Practice P2" : sessionType === "qualifying" ? "Q2 Pace" : "Pole Position"}
+                {sessionType === "practice" ? "Practice P2" : sessionType === "qualifying" ? "Q2 Pace" : "P2 Position"}
               </span>
               <h3 style={{ margin: "8px 0 0", fontSize: "1.5rem", fontFamily: "var(--font-family-headline-sm)", fontWeight: 700 }}>
-                {sessionType === "practice" ? "Lewis Hamilton" : "Kimi Antonelli"}
+                {p2Name}
               </h3>
               <p style={{ margin: "4px 0 0", color: "var(--color-secondary-fixed-dim)", fontSize: "0.85rem", textTransform: "uppercase" }}>
-                {sessionType === "practice" ? "Ferrari" : "Mercedes"}
+                {p2Team}
               </p>
             </div>
             <span className="material-symbols-outlined" style={{ color: "var(--color-secondary-fixed-dim)", fontSize: "28px" }}>bolt</span>
@@ -246,11 +307,11 @@ export function RacePage({ metrics, activeYear }: Props) {
                 Fastest Lap
               </span>
               <h3 style={{ margin: "8px 0 0", fontSize: "1.5rem", fontFamily: "var(--font-family-headline-sm)", fontWeight: 700 }}>
-                {sessionType === "practice" ? "George Russell" : "Kimi Antonelli"}
+                {leaderName}
               </h3>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                 <span style={{ fontFamily: "var(--font-family-data-display)", color: "var(--color-primary)", fontSize: "1.25rem", fontWeight: 600 }}>
-                  {sessionType === "practice" ? "1:32.404" : "1:31.777"}
+                  {fastestLapTime}
                 </span>
               </div>
             </div>
@@ -303,104 +364,122 @@ export function RacePage({ metrics, activeYear }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Row 1 */}
-                  <tr style={{ background: "rgba(225, 6, 0, 0.08)", borderLeft: "4px solid var(--color-primary-container)" }}>
-                    <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)", color: "var(--color-primary)", fontWeight: 700 }}>1</td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.08)", display: "flex", alignItems: "center", fontWeight: 700, fontSize: "0.75rem", border: "1px solid rgba(255,255,255,0.15)", justifyContent: "center" }}>
-                          {sessionType === "practice" ? "RUS" : "LEC"}
-                        </div>
-                        <strong>{sessionType === "practice" ? "George Russell" : "Charles Leclerc"}</strong>
-                      </div>
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "8px", height: "16px", background: sessionType === "practice" ? "#00d2be" : "#e10600" }} />
-                        <span style={{ color: "var(--color-secondary-fixed-dim)" }}>
-                          {sessionType === "practice" ? "Mercedes" : "Ferrari"}
-                        </span>
-                      </div>
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>2</td>
-                    }
-                    <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)", color: sessionType === "race" ? "inherit" : "var(--color-primary)" }}>
-                      {sessionType === "practice" ? "1:32.404" : sessionType === "qualifying" ? "1:31.777" : "Finished"}
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)", color: "var(--color-primary)", fontWeight: 700 }}>25</td>}
-                  </tr>
+                  {hasResults ? (
+                    [...results]
+                      .sort((a, b) => {
+                        const aFailed = a.dnf || a.dns || a.dsq;
+                        const bFailed = b.dnf || b.dns || b.dsq;
+                        if (aFailed && !bFailed) return 1;
+                        if (!aFailed && bFailed) return -1;
+                        const aPos = a.position || 999;
+                        const bPos = b.position || 999;
+                        return aPos - bPos;
+                      })
+                      .map((res) => {
+                        const info = getDriverDetail(res.driver_number);
+                        const pos = res.position;
+                        // starting grid mock
+                        const grid = Math.min(20, Math.max(1, pos + (res.driver_number % 3) - 1));
+                        
+                        // Status
+                        const status = res.dnf ? "DNF" : res.dns ? "DNS" : res.dsq ? "DSQ" : "Finished";
+                        const points = res.points;
+                        const isWinner = pos === 1;
 
-                  {/* Row 2 */}
-                  <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)" }}>2</td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem" }}>
-                          {sessionType === "practice" ? "HAM" : "RUS"}
-                        </div>
-                        <span>{sessionType === "practice" ? "Lewis Hamilton" : "George Russell"}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "8px", height: "16px", background: sessionType === "practice" ? "#e10600" : "#00d2be" }} />
-                        <span style={{ color: "var(--color-secondary-fixed-dim)" }}>
-                          {sessionType === "practice" ? "Ferrari" : "Mercedes"}
-                        </span>
-                      </div>
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>4</td>}
-                    <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)" }}>
-                      {sessionType === "practice" ? "1:32.615" : sessionType === "qualifying" ? "1:32.002" : "Finished"}
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)" }}>18</td>}
-                  </tr>
+                        return (
+                          <tr 
+                            key={res.driver_number}
+                            style={{ 
+                              background: isWinner ? "rgba(225, 6, 0, 0.08)" : "none", 
+                              borderLeft: isWinner ? "4px solid var(--color-primary-container)" : "none",
+                              borderBottom: "1px solid rgba(255, 255, 255, 0.05)"
+                            }}
+                          >
+                            <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)", color: isWinner ? "var(--color-primary)" : "inherit", fontWeight: isWinner ? 700 : 500 }}>
+                              {res.dnf || res.dns || res.dsq ? "NC" : pos}
+                            </td>
+                            <td style={{ padding: "16px 20px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <div style={{ width: "32px", height: "32px", background: isWinner ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem", border: isWinner ? "1px solid rgba(255,255,255,0.15)" : "none" }}>
+                                  {info.code}
+                                </div>
+                                <strong>{info.name}</strong>
+                              </div>
+                            </td>
+                            <td style={{ padding: "16px 20px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <div style={{ width: "8px", height: "16px", background: info.color }} />
+                                <span style={{ color: "var(--color-secondary-fixed-dim)" }}>
+                                  {info.team}
+                                </span>
+                              </div>
+                            </td>
+                            {sessionType === "race" && (
+                              <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>{grid}</td>
+                            )}
+                            <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)", color: sessionType === "race" ? "inherit" : "var(--color-primary)" }}>
+                              {status}
+                            </td>
+                            {sessionType === "race" && (
+                              <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)", color: isWinner ? "var(--color-primary)" : "inherit", fontWeight: isWinner ? 700 : 500 }}>{points}</td>
+                            )}
+                          </tr>
+                        );
+                      })
+                  ) : (
+                    orderedDrivers.map((driver, index) => {
+                      const info = getDriverDetail(driver.driver_number);
+                      const pos = index + 1;
+                      const grid = Math.min(20, Math.max(1, pos + (driver.driver_number % 3) - 1));
+                      const status = pos <= 15 ? "Finished" : pos <= 18 ? "Lapped" : "Retired";
+                      const pointsMap: Record<number, number> = {
+                        1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1
+                      };
+                      const points = pointsMap[pos] || 0;
+                      const isWinner = pos === 1;
 
-                  {/* Row 3 */}
-                  <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)" }}>3</td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem" }}>
-                          {sessionType === "practice" ? "LEC" : "HAM"}
-                        </div>
-                        <span>{sessionType === "practice" ? "Charles Leclerc" : "Lewis Hamilton"}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "8px", height: "16px", background: "#e10600" }} />
-                        <span style={{ color: "var(--color-secondary-fixed-dim)" }}>Ferrari</span>
-                      </div>
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>3</td>}
-                    <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)" }}>
-                      {sessionType === "practice" ? "1:32.884" : sessionType === "qualifying" ? "1:32.309" : "Finished"}
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)" }}>15</td>}
-                  </tr>
-
-                  {/* Row 4 */}
-                  <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)" }}>4</td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem" }}>NOR</div>
-                        <span>Lando Norris</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "8px", height: "16px", background: "#ff8700" }} />
-                        <span style={{ color: "var(--color-secondary-fixed-dim)" }}>McLaren</span>
-                      </div>
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>6</td>}
-                    <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)" }}>
-                      {sessionType === "practice" ? "1:33.201" : sessionType === "qualifying" ? "1:32.502" : "Finished"}
-                    </td>
-                    {sessionType === "race" && <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)" }}>12</td>}
-                  </tr>
+                      return (
+                        <tr 
+                          key={driver.driver_number}
+                          style={{ 
+                            background: isWinner ? "rgba(225, 6, 0, 0.08)" : "none", 
+                            borderLeft: isWinner ? "4px solid var(--color-primary-container)" : "none",
+                            borderBottom: "1px solid rgba(255, 255, 255, 0.05)"
+                          }}
+                        >
+                          <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)", color: isWinner ? "var(--color-primary)" : "inherit", fontWeight: isWinner ? 700 : 500 }}>{pos}</td>
+                          <td style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <div style={{ width: "32px", height: "32px", background: isWinner ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem", border: isWinner ? "1px solid rgba(255,255,255,0.15)" : "none" }}>
+                                {info.code}
+                              </div>
+                              <strong>{info.name}</strong>
+                            </div>
+                          </td>
+                          <td style={{ padding: "16px 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <div style={{ width: "8px", height: "16px", background: info.color }} />
+                              <span style={{ color: "var(--color-secondary-fixed-dim)" }}>
+                                {info.team}
+                              </span>
+                            </div>
+                          </td>
+                          {sessionType === "race" && (
+                            <td style={{ padding: "16px 20px", textAlign: "center", fontFamily: "var(--font-family-data-display)" }}>{grid}</td>
+                          )}
+                          <td style={{ padding: "16px 20px", textAlign: sessionType === "race" ? "left" : "right", fontFamily: "var(--font-family-data-display)", color: sessionType === "race" ? "inherit" : "var(--color-primary)" }}>
+                            {sessionType === "practice" || sessionType === "qualifying" 
+                              ? formatLapTime(driver.best_lap) 
+                              : status
+                            }
+                          </td>
+                          {sessionType === "race" && (
+                            <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "var(--font-family-data-display)", color: isWinner ? "var(--color-primary)" : "inherit", fontWeight: isWinner ? 700 : 500 }}>{points}</td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -654,7 +733,7 @@ export function RacePage({ metrics, activeYear }: Props) {
                   Place custom track layout SVG files in the <code style={{ color: "var(--color-primary)" }}>/public/tracks/</code> directory to automatically render them.
                 </p>
                 <div style={{ position: "absolute", bottom: 8, left: 8, padding: "4px 8px", background: "rgba(13,13,27,0.85)", fontSize: "0.6rem", fontFamily: "var(--font-family-label-sm)" }}>
-                  MAP IDENTIFIER: {selectedRace.toLowerCase().replace(/ /g, "_")}
+                  MAP IDENTIFIER: {(currentSession?.location || "unknown").toLowerCase().replace(/ /g, "_")}
                 </div>
               </div>
 
@@ -809,11 +888,11 @@ export function RacePage({ metrics, activeYear }: Props) {
               <tbody>
                 {orderedDrivers.map((driver) => {
                   const sparkline = [
-                    driver.best_lap * 1.05,
-                    driver.avg_lap_time,
-                    driver.best_lap,
-                    driver.avg_lap_time * 0.98,
-                    driver.best_lap * 1.01,
+                    (driver.best_lap ?? 0) * 1.05,
+                    driver.avg_lap_time ?? 0,
+                    driver.best_lap ?? 0,
+                    (driver.avg_lap_time ?? 0) * 0.98,
+                    (driver.best_lap ?? 0) * 1.01,
                   ];
 
                   return (

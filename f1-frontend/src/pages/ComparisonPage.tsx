@@ -1,37 +1,48 @@
 import { useEffect, useState } from "react";
-import type { DriverRaceMetrics } from "../types";
+import type { DriverRaceMetrics, RaceSession } from "../types";
 import { SectionHeader } from "../components/SectionHeader";
-import { formatDriverLabel, formatInteger, formatLapTime } from "../lib/metrics";
+import { formatInteger, formatLapTime } from "../lib/metrics";
 
 interface Props {
   metrics: DriverRaceMetrics[];
+  drivers: any[];
   activeYear: number;
+  sessions: RaceSession[];
+  selectedSessionKey: number | null;
+  onSessionChange: (key: number) => void;
 }
-
-const RACES_BY_YEAR: Record<number, string[]> = {
-  2023: ["Bahrain Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Italian Grand Prix", "Abu Dhabi Grand Prix"],
-  2024: ["Bahrain Grand Prix", "Saudi Arabian Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Belgian Grand Prix", "Singapore Grand Prix"],
-  2025: ["Bahrain Grand Prix", "Australian Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Italian Grand Prix", "Singapore Grand Prix"],
-  2026: ["Bahrain Grand Prix", "Emilia Romagna Grand Prix", "Monaco Grand Prix", "British Grand Prix", "Belgian Grand Prix", "Singapore Grand Prix", "United States Grand Prix"],
-};
 
 function findDriver(metrics: DriverRaceMetrics[], driverNumber: number): DriverRaceMetrics | undefined {
   return metrics.find((driver) => driver.driver_number === driverNumber);
 }
 
-export function ComparisonPage({ metrics, activeYear }: Props) {
+export function ComparisonPage({ metrics, drivers, activeYear, sessions, selectedSessionKey, onSessionChange }: Props) {
+  void activeYear;
+  
+  // Build dynamic driver dictionary from fetched drivers
+  const driverLookup = new Map<number, { name: string; code: string; team: string; color: string }>();
+  drivers.forEach((d) => {
+    driverLookup.set(d.driver_number, {
+      name: d.full_name || `${d.first_name} ${d.last_name}`,
+      code: d.name_acronym || "DRV",
+      team: d.team_name || "Independent",
+      color: d.team_colour ? `#${d.team_colour}` : "#ffffff"
+    });
+  });
+
+  const getDriverDetail = (num: number) => {
+    return driverLookup.get(num) || {
+      name: `Driver #${num}`,
+      code: `D${num}`,
+      team: "Independent",
+      color: "#ffffff"
+    };
+  };
+
   const firstDriver = metrics[0]?.driver_number ?? 0;
   const secondDriver = metrics[1]?.driver_number ?? firstDriver;
   const [leftDriver, setLeftDriver] = useState<number>(firstDriver);
   const [rightDriver, setRightDriver] = useState<number>(secondDriver);
-
-  const races = RACES_BY_YEAR[activeYear] || RACES_BY_YEAR[2026];
-  const [selectedRace, setSelectedRace] = useState<string>(races[0]);
-
-  useEffect(() => {
-    const updatedRaces = RACES_BY_YEAR[activeYear] || RACES_BY_YEAR[2026];
-    setSelectedRace(updatedRaces[0]);
-  }, [activeYear]);
 
   useEffect(() => {
     if (metrics.length >= 2) {
@@ -43,24 +54,30 @@ export function ComparisonPage({ metrics, activeYear }: Props) {
   const left = findDriver(metrics, leftDriver);
   const right = findDriver(metrics, rightDriver);
 
-  const leftOptions = metrics.map((driver) => (
-    <option key={driver.driver_number} value={driver.driver_number}>
-      {formatDriverLabel(driver.driver_number)}
-    </option>
-  ));
+  const leftOptions = metrics.map((driver) => {
+    const detail = getDriverDetail(driver.driver_number);
+    return (
+      <option key={driver.driver_number} value={driver.driver_number}>
+        #{driver.driver_number} - {detail.name} ({detail.code})
+      </option>
+    );
+  });
 
-  const rightOptions = metrics.map((driver) => (
-    <option key={driver.driver_number} value={driver.driver_number}>
-      {formatDriverLabel(driver.driver_number)}
-    </option>
-  ));
+  const rightOptions = metrics.map((driver) => {
+    const detail = getDriverDetail(driver.driver_number);
+    return (
+      <option key={driver.driver_number} value={driver.driver_number}>
+        #{driver.driver_number} - {detail.name} ({detail.code})
+      </option>
+    );
+  });
 
   const comparisonRows = left && right
     ? [
-        { label: "Best lap", leftValue: left.best_lap, rightValue: right.best_lap, formatter: formatLapTime },
-        { label: "Average lap", leftValue: left.avg_lap_time, rightValue: right.avg_lap_time, formatter: formatLapTime },
-        { label: "Completed laps", leftValue: left.laps_completed, rightValue: right.laps_completed, formatter: formatInteger },
-        { label: "Pit-outs", leftValue: left.pit_out_laps, rightValue: right.pit_out_laps, formatter: formatInteger },
+        { label: "Best lap", leftValue: left.best_lap ?? 0, rightValue: right.best_lap ?? 0, formatter: formatLapTime },
+        { label: "Average lap", leftValue: left.avg_lap_time ?? 0, rightValue: right.avg_lap_time ?? 0, formatter: formatLapTime },
+        { label: "Completed laps", leftValue: left.laps_completed ?? 0, rightValue: right.laps_completed ?? 0, formatter: formatInteger },
+        { label: "Pit-outs", leftValue: left.pit_out_laps ?? 0, rightValue: right.pit_out_laps ?? 0, formatter: formatInteger },
       ]
     : [];
 
@@ -79,8 +96,8 @@ export function ComparisonPage({ metrics, activeYear }: Props) {
             Select Race Event
           </span>
           <select
-            value={selectedRace}
-            onChange={(e) => setSelectedRace(e.target.value)}
+            value={selectedSessionKey ?? ""}
+            onChange={(e) => onSessionChange(Number(e.target.value))}
             className="glass-card"
             style={{
               padding: "8px 16px",
@@ -94,12 +111,13 @@ export function ComparisonPage({ metrics, activeYear }: Props) {
               borderRadius: "0px"
             }}
           >
-            {races.map((race) => (
-              <option key={race} value={race} style={{ background: "#1a1a28", color: "#fff" }}>
-                {race}
+            {sessions.map((s) => (
+              <option key={s.session_key} value={s.session_key} style={{ background: "#1a1a28", color: "#fff" }}>
+                {s.location} ({s.country_name})
               </option>
             ))}
           </select>
+
         </div>
       </div>
 
@@ -122,22 +140,30 @@ export function ComparisonPage({ metrics, activeYear }: Props) {
       <div className="compare-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "24px" }}>
         <article className="compare-card" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <span className="compare-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>Left lane</span>
-          <strong className="compare-card__value" style={{ fontSize: "2rem", fontFamily: "var(--font-family-headline-sm)" }}>{left ? formatDriverLabel(left.driver_number) : "--"}</strong>
-          <span className="compare-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6 }}>{left ? `${left.laps_completed} laps completed` : "No comparison data"}</span>
+          <strong className="compare-card__value" style={{ fontSize: "2rem", fontFamily: "var(--font-family-headline-sm)" }}>
+            {left ? getDriverDetail(left.driver_number).code : "--"}
+          </strong>
+          <span className="compare-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+            {left ? `${getDriverDetail(left.driver_number).name} - ${getDriverDetail(left.driver_number).team}` : "No comparison data"}
+          </span>
         </article>
 
         <article className="compare-card compare-card--center" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", borderLeft: "2px solid var(--color-primary-container) !important" }}>
           <span className="compare-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-primary)" }}>Direct delta</span>
           <strong className="compare-card__value" style={{ fontSize: "2rem", fontFamily: "var(--font-family-data-display)", color: "var(--color-primary)" }}>
-            {left && right ? formatLapTime(Math.abs(left.avg_lap_time - right.avg_lap_time)) : "--"}
+            {left && right && left.avg_lap_time !== null && right.avg_lap_time !== null ? formatLapTime(Math.abs(left.avg_lap_time - right.avg_lap_time)) : "--"}
           </strong>
           <span className="compare-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6 }}>Average lap gap between the selected drivers.</span>
         </article>
 
         <article className="compare-card" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <span className="compare-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>Right lane</span>
-          <strong className="compare-card__value" style={{ fontSize: "2rem", fontFamily: "var(--font-family-headline-sm)" }}>{right ? formatDriverLabel(right.driver_number) : "--"}</strong>
-          <span className="compare-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6 }}>{right ? `${right.laps_completed} laps completed` : "No comparison data"}</span>
+          <strong className="compare-card__value" style={{ fontSize: "2rem", fontFamily: "var(--font-family-headline-sm)" }}>
+            {right ? getDriverDetail(right.driver_number).code : "--"}
+          </strong>
+          <span className="compare-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+            {right ? `${getDriverDetail(right.driver_number).name} - ${getDriverDetail(right.driver_number).team}` : "No comparison data"}
+          </span>
         </article>
       </div>
 

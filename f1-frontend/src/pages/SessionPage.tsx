@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ApiHealth, RaceSession } from "../types";
 import { SectionHeader } from "../components/SectionHeader";
+import { ComingSoonWrapper } from "../components/ComingSoonWrapper";
 
 interface Props {
   apiHealth: ApiHealth | null;
@@ -68,171 +69,158 @@ export function SessionPage({ apiHealth, apiStatusMessage, activeYear, sessions 
   };
 
   return (
-    <section className="surface-panel session-panel" style={{ padding: "24px" }}>
-      <SectionHeader
-        eyebrow="Admin Console"
-        title="Telemetry database operations"
-        description="Verify database connections, check API latency limits, and lock analytics sessions until data integrity checks complete."
-      />
+    <ComingSoonWrapper 
+      title="Admin console coming soon" 
+      description="Database locking operations and session control keys will be activated once local server ingestion is configured."
+    >
+      <section className="surface-panel session-panel" style={{ padding: "24px" }}>
+        <SectionHeader
+          eyebrow="Admin Console"
+          title="Telemetry database operations"
+          description="Verify database connections, check API latency limits, and lock analytics sessions until data integrity checks complete."
+        />
 
-      {/* Backend Status Metrics Row */}
-      <div 
-        className="session-grid" 
-        style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
-          gap: "12px", 
-          marginBottom: "24px" 
-        }}
-      >
-        <article className="info-card" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <span className="info-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>API status</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-              <span className="status-chip__dot" style={{ background: apiHealth && apiHealth.status !== "offline" ? "#00d100" : "#ff9f00", width: "10px", height: "10px" }} />
-              <strong className="info-card__value" style={{ fontSize: "1.75rem", fontFamily: "var(--font-family-headline-sm)" }}>
-                {apiHealth?.status?.toUpperCase() ?? "OFFLINE"}
-              </strong>
+        {/* Backend Status Metrics Row */}
+        <div 
+          className="session-grid" 
+          style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
+            gap: "16px", 
+            marginTop: "24px",
+            marginBottom: "24px"
+          }}
+        >
+          {/* Health Card */}
+          <div className="glass-card" style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-family-label-sm)", color: "var(--color-secondary-fixed-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                API Health Status
+              </span>
+              <h3 style={{ margin: "8px 0 0", fontSize: "1.5rem", fontFamily: "var(--font-family-headline-sm)", fontWeight: 700 }}>
+                {apiHealth?.status === "ok" ? "ONLINE" : "OFFLINE"}
+              </h3>
+              <p style={{ margin: "4px 0 0", color: apiHealth?.status === "ok" ? "var(--color-primary)" : "#ff4d4f", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase" }}>
+                FastAPI Gateway {apiHealth?.version ? `v${apiHealth.version}` : ""}
+              </p>
             </div>
+            <span className="material-symbols-outlined" style={{ color: apiHealth?.status === "ok" ? "var(--color-primary)" : "#ff4d4f", fontSize: "28px" }}>
+              {apiHealth?.status === "ok" ? "wifi" : "wifi_off"}
+            </span>
           </div>
-          <span className="info-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "8px" }}>
-            FastAPI endpoint version: {apiHealth?.version ?? "v0.1.0-alpha"}
-          </span>
-        </article>
 
-        <article className="info-card" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <span className="info-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>Active season</span>
-            <strong className="info-card__value" style={{ fontSize: "1.75rem", fontFamily: "var(--font-family-headline-sm)", display: "block", marginTop: "8px" }}>
-              {activeYear}
-            </strong>
+          {/* Locked Status */}
+          <div className="glass-card" style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-family-label-sm)", color: "var(--color-secondary-fixed-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                Locked Sessions
+              </span>
+              <h3 style={{ margin: "8px 0 0", fontSize: "1.5rem", fontFamily: "var(--font-family-headline-sm)", fontWeight: 700 }}>
+                {sessionStates.filter((s) => s.isLocked).length} / {sessionStates.length}
+              </h3>
+              <p style={{ margin: "4px 0 0", color: "var(--color-secondary-fixed-dim)", fontSize: "0.75rem" }}>
+                Locked data files are read-only
+              </p>
+            </div>
+            <span className="material-symbols-outlined" style={{ color: "var(--color-secondary-fixed-dim)", fontSize: "28px" }}>lock</span>
           </div>
-          <span className="info-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "8px" }}>
-            Locking rules apply only to F1 {activeYear} records.
-          </span>
-        </article>
+        </div>
 
-        <article className="info-card" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <span className="info-card__label" style={{ fontSize: "0.65rem", textTransform: "uppercase", color: "var(--color-secondary-fixed-dim)" }}>Connection pulse</span>
-            <strong className="info-card__value" style={{ fontSize: "1.75rem", fontFamily: "var(--font-family-headline-sm)", display: "block", marginTop: "8px" }}>
-              99.8% Uptime
-            </strong>
-          </div>
-          <span className="info-card__meta" style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "8px" }}>
-            Database latency: 12ms (Postgres RDS).
-          </span>
-        </article>
-      </div>
-
-      {/* Admin Action Bar */}
-      <div 
-        className="glass-card" 
-        style={{ 
-          padding: "20px", 
-          marginBottom: "24px", 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          flexWrap: "wrap", 
-          gap: "16px" 
-        }}
-      >
-        <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", textTransform: "uppercase" }}>Global locks configuration</h3>
-          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--color-secondary-fixed-dim)" }}>
-            Mass action switches to enforce analytics blocks across the selected year.
+        {/* Global Operations Controls */}
+        <div className="glass-card" style={{ padding: "24px", marginBottom: "24px" }}>
+          <h4 style={{ margin: "0 0 8px 0", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--color-on-surface)" }}>
+            Global Database Controls
+          </h4>
+          <p style={{ margin: "0 0 16px 0", fontSize: "0.75rem", color: "var(--color-secondary-fixed-dim)" }}>
+            Perform bulk verification operations on ingestion feeds. Locked GP data is cached locally to prevent rate limiting.
           </p>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <button 
+              onClick={lockAll} 
+              className="btn btn--outline" 
+              style={{ padding: "8px 16px", fontSize: "0.7rem", fontFamily: "var(--font-family-label-sm)", borderRadius: "0px" }}
+            >
+              LOCK ALL SESSIONS
+            </button>
+            <button 
+              onClick={unlockAll} 
+              className="btn btn--outline" 
+              style={{ padding: "8px 16px", fontSize: "0.7rem", fontFamily: "var(--font-family-label-sm)", borderRadius: "0px" }}
+            >
+              RELEASE ALL LOCKS
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button 
-            onClick={lockAll} 
-            className="brutalist-btn"
-            style={{ padding: "8px 16px", fontSize: "0.7rem", fontFamily: "var(--font-family-label-sm)", background: "rgba(225,6,0,0.12)", color: "var(--color-primary)", border: "1px solid var(--color-primary)", cursor: "pointer" }}
-          >
-            LOCK ALL SESSIONS
-          </button>
-          <button 
-            onClick={unlockAll} 
-            className="brutalist-btn"
-            style={{ padding: "8px 16px", fontSize: "0.7rem", fontFamily: "var(--font-family-label-sm)", background: "rgba(255,255,255,0.05)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer" }}
-          >
-            UNLOCK ALL
-          </button>
-        </div>
-      </div>
 
-      {/* Race Sessions Locking Log */}
-      <div className="glass-card" style={{ overflow: "hidden" }}>
-        <div style={{ padding: "20px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", textTransform: "uppercase" }}>Race sessions verification locking</h3>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table className="driver-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "rgba(255, 255, 255, 0.02)" }}>
-                <th style={{ padding: "16px 20px" }}>Race Event</th>
-                <th style={{ padding: "16px 20px" }}>Session Date</th>
-                <th style={{ padding: "16px 20px" }}>Status</th>
-                <th style={{ padding: "16px 20px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessionStates.map((s) => (
-                <tr key={s.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", opacity: s.isLocked ? 0.85 : 1 }}>
-                  <td style={{ padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "16px", color: s.isLocked ? "var(--color-primary)" : "var(--color-secondary-fixed-dim)" }}>
-                        {s.isLocked ? "lock" : "lock_open"}
-                      </span>
-                      <strong>{s.name}</strong>
-                    </div>
-                  </td>
-                  <td style={{ padding: "16px 20px", fontFamily: "var(--font-family-data-display)", color: "var(--color-secondary-fixed-dim)", fontSize: "0.85rem" }}>
-                    {s.date}
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <span 
-                      style={{ 
-                        padding: "2px 8px", 
-                        background: s.isLocked ? "rgba(225, 6, 0, 0.15)" : "rgba(0, 209, 0, 0.15)", 
-                        color: s.isLocked ? "#ff5b57" : "#00d100", 
-                        fontSize: "0.65rem", 
-                        fontWeight: 700, 
-                        textTransform: "uppercase" 
-                      }}
-                    >
-                      {s.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                    <button
-                      onClick={() => toggleLock(s.id)}
-                      className="brutalist-btn"
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: "0.65rem",
-                        fontFamily: "var(--font-family-label-sm)",
-                        background: s.isLocked ? "rgba(255,255,255,0.05)" : "var(--color-primary-container)",
-                        color: s.isLocked ? "#fff" : "var(--color-on-primary-container)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        cursor: "pointer",
-                        borderRadius: "0px"
-                      }}
-                    >
-                      {s.isLocked ? "UNLOCK SESSION" : "VERIFY & LOCK"}
-                    </button>
-                  </td>
+        {/* Sessions Ingestion Table */}
+        <div className="glass-card" style={{ padding: "24px" }}>
+          <h4 style={{ margin: "0 0 16px 0", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--color-on-surface)" }}>
+            Ingested GP Sessions ({activeYear})
+          </h4>
+          <div style={{ overflowX: "auto" }}>
+            <table className="driver-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "rgba(255, 255, 255, 0.02)" }}>
+                  <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem" }}>Session ID</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem" }}>Event Name</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem" }}>Date Ingested</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem" }}>Integrity Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "right", fontSize: "0.75rem" }}>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sessionStates.map((s) => (
+                  <tr key={s.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                    <td style={{ padding: "16px", fontSize: "0.75rem", fontFamily: "var(--font-family-data-display)" }}>
+                      #{s.id}
+                    </td>
+                    <td style={{ padding: "16px", fontSize: "0.75rem", fontWeight: 700 }}>
+                      {s.name}
+                    </td>
+                    <td style={{ padding: "16px", fontSize: "0.75rem", color: "var(--color-secondary-fixed-dim)", fontFamily: "var(--font-family-data-display)" }}>
+                      {s.date}
+                    </td>
+                    <td style={{ padding: "16px", fontSize: "0.75rem" }}>
+                      <span 
+                        style={{ 
+                          padding: "2px 8px", 
+                          background: s.isLocked ? "rgba(6, 239, 6, 0.1)" : "rgba(255, 135, 0, 0.1)", 
+                          color: s.isLocked ? "#06ef06" : "#ff8700",
+                          fontWeight: 700,
+                          fontSize: "0.65rem",
+                          textTransform: "uppercase"
+                        }}
+                      >
+                        {s.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: "16px", textAlign: "right" }}>
+                      <button
+                        onClick={() => toggleLock(s.id)}
+                        className="btn btn--outline"
+                        style={{ 
+                          padding: "4px 10px", 
+                          fontSize: "0.65rem", 
+                          fontFamily: "var(--font-family-label-sm)", 
+                          borderColor: s.isLocked ? "rgba(225, 6, 0, 0.3)" : "rgba(255,255,255,0.12)",
+                          color: s.isLocked ? "var(--color-primary)" : "#fff",
+                          borderRadius: "0px"
+                        }}
+                      >
+                        {s.isLocked ? "UNLOCK SESSION" : "VERIFY & LOCK"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div className="session-panel__message" style={{ marginTop: "24px", color: "var(--color-secondary-fixed-dim)", fontSize: "0.75rem", fontStyle: "italic" }}>
-        {apiStatusMessage || "Administrator cockpit connected."}
-      </div>
-    </section>
+        <div className="session-panel__message" style={{ marginTop: "24px", color: "var(--color-secondary-fixed-dim)", fontSize: "0.75rem", fontStyle: "italic" }}>
+          {apiStatusMessage || "Administrator cockpit connected."}
+        </div>
+      </section>
+    </ComingSoonWrapper>
   );
 }

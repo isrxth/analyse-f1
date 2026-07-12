@@ -13,8 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      # 1. Install Node.js environment in the cloud runner
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 2. Install pnpm globally in the cloud runner
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # 3. Navigate into f1-frontend, install project dependencies, and compile the UI
+      - name: Build Frontend Application
+        run: |
+          cd f1-frontend
+          pnpm install
+          pnpm run build
+
+      # 4. Point the Firebase action to look inside the subfolder
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ANALYSE_F1 }}
           projectId: analyse-f1
+          entryPoint: 'f1-frontend' # <-- Points Firebase to f1-frontend/firebase.json
